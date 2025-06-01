@@ -28,7 +28,7 @@ with st.expander("About This Simulation"):
     """)
 
 # --- SIDEBAR CONTROLS ---
-st.sidebar.header("🔧 Simulation Parameters")
+st.sidebar.header("Simulation Parameters")
 
 # Population settings
 st.sidebar.subheader("Population Settings")
@@ -66,16 +66,13 @@ if reset_button:
     st.rerun()
 
 if run_button:
-    # Initialize population
-    white_pop = int(initial_population * 0.5)
-    dark_pop = initial_population - white_pop
+    # --- GA Population Initialization ---
+    # 0 = white, 1 = dark (genetic representation)
+    population = np.random.choice([0, 1], size=initial_population)  
     pollution_level = pollution_start
-
-    # Data storage
-    white_history = []
-    dark_history = []
-    pollution_history = []
-    generation_data = []
+    
+    # Data history
+    white_history, dark_history, pollution_history, generation_data = [], [], [], []
 
     # Create layout containers
     status_container = st.container()
@@ -108,31 +105,55 @@ if run_button:
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    # Run simulation
+    # Run simulation using Genetic Algorithm
     for gen in range(generations):
         # Update progress
         progress = (gen + 1) / generations
         progress_bar.progress(progress)
         progress_text.text(f"Running simulation... Generation {gen + 1}/{generations}")
         
-        # --- Survival Probabilities ---
-        white_survival = max(0.05, 1.0 - pollution_level)
-        dark_survival = max(0.05, pollution_level)
+        # --- Fitness Calculation ---
+        # Fitness based on camouflage effectiveness
+        # 0 = white moths thrive in clean environment (low pollution)
+        # 1 = dark moths thrive in polluted environment (high pollution)
+        fitness = np.where(population == 0, 1.0 - pollution_level, pollution_level)
+        fitness = np.clip(fitness, 0.05, 1.0)  # Minimum survival chance
+        
+        # --- Selection (Survival of the Fittest) ---
+        survivors_mask = np.random.rand(len(population)) < fitness
+        survivors = population[survivors_mask]
 
-        white_survivors = np.random.binomial(white_pop, white_survival)
-        dark_survivors = np.random.binomial(dark_pop, dark_survival)
+        # --- Survival Rate Calculation ---
+        initial_white = np.count_nonzero(population == 0)
+        initial_dark = np.count_nonzero(population == 1)
 
-        # --- Reproduction and Mutation ---
-        white_offspring = white_survivors * 2
-        dark_offspring = dark_survivors * 2
+        surviving_white = np.count_nonzero(survivors == 0)
+        surviving_dark = np.count_nonzero(survivors == 1)
 
-        to_dark = np.random.binomial(white_offspring, mutation_rate)
-        to_white = np.random.binomial(dark_offspring, mutation_rate)
-
-        white_pop = white_offspring - to_dark + to_white
-        dark_pop = dark_offspring - to_white + to_dark
-
-        # --- Store History ---
+        white_survival = surviving_white / initial_white if initial_white > 0 else 0
+        dark_survival = surviving_dark / initial_dark if initial_dark > 0 else 0
+                
+        # Prevent population extinction
+        if len(survivors) == 0:
+            population = np.random.choice([0, 1], size=initial_population)
+            continue
+        
+        # --- Reproduction (Create next generation) ---
+        # Each survivor can reproduce, population size remains constant
+        offspring = np.random.choice(survivors, size=initial_population)
+        
+        # --- Mutation (Genetic variation) ---
+        mutation_mask = np.random.rand(initial_population) < mutation_rate
+        offspring[mutation_mask] = 1 - offspring[mutation_mask]  # Flip gene (0->1 or 1->0)
+        
+        # --- Next Generation ---
+        population = offspring
+        
+        # Count phenotypes for visualization
+        white_pop = np.count_nonzero(population == 0)
+        dark_pop = np.count_nonzero(population == 1)
+        
+        # Store history
         white_history.append(white_pop)
         dark_history.append(dark_pop)
         pollution_history.append(pollution_level)
@@ -158,10 +179,32 @@ if run_button:
         pollution_metric.metric("Pollution Level", f"{pollution_level:.2f}", f"{pollution_rate:+.3f}")
 
         # --- Visualizing Environment (Camouflage) ---
-        env_gray = pollution_level
+        # Create realistic tree bark coloring based on pollution
+        # Clean environment: light brown/beige bark
+        # Polluted environment: dark sooty bark
+        clean_bark_color = (0.85, 0.75, 0.65)  # Light brownish bark
+        polluted_bark_color = (0.15, 0.12, 0.10)  # Dark sooty bark
+        
+        # Interpolate between clean and polluted colors
+        bark_r = clean_bark_color[0] * (1 - pollution_level) + polluted_bark_color[0] * pollution_level
+        bark_g = clean_bark_color[1] * (1 - pollution_level) + polluted_bark_color[1] * pollution_level
+        bark_b = clean_bark_color[2] * (1 - pollution_level) + polluted_bark_color[2] * pollution_level
+        
         fig2, ax2 = plt.subplots(figsize=(6, 5))
-        ax2.set_facecolor((env_gray, env_gray, env_gray))
-        ax2.set_title(f"Tree Bark Environment (Pollution: {pollution_level:.2f})", fontsize=12, pad=20)
+        ax2.set_facecolor((bark_r, bark_g, bark_b))
+        
+        # Add some texture to simulate bark pattern
+        np.random.seed(42)  # For consistent texture
+        n_texture = 30
+        texture_x = np.random.rand(n_texture)
+        texture_y = np.random.rand(n_texture)
+        # Darker spots for bark texture
+        texture_color = (bark_r * 0.7, bark_g * 0.7, bark_b * 0.7)
+        ax2.scatter(texture_x, texture_y, c=[texture_color], s=20, alpha=0.3, marker='s')
+        
+        pollution_desc = "Clean" if pollution_level < 0.3 else "Moderately Polluted" if pollution_level < 0.7 else "Heavily Polluted"
+        ax2.set_title(f"Tree Bark Environment - {pollution_desc} (Pollution: {pollution_level:.2f})", 
+                     fontsize=12, pad=20)
         ax2.axis('off')
 
         # Display representative sample of moths
