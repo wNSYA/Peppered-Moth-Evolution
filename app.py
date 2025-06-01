@@ -41,7 +41,7 @@ generations = st.sidebar.slider("Number of Generations", 5, 100, 30,
 
 # Hard-coded parameters for realistic simulation
 carrying_capacity = 2000  # Maximum sustainable population
-reproduction_rate = 1.8   # Average offspring per surviving moth
+reproduction_rate = 2.2   # Increased from 1.8 to allow better population growth
 
 # Environmental settings
 st.sidebar.subheader("Environmental Factors")
@@ -160,12 +160,12 @@ if run_button:
             base_fitness = np.where(population == 0, 1.0 - pollution_level, pollution_level)
             
             # Apply gentler selection pressure using sigmoid-like curve
-            fitness_advantage = 0.3  # How much advantage the favored type gets
-            baseline_survival = 0.7   # Base survival rate for all moths
+            fitness_advantage = 0.2  # Reduced from 0.3 to make selection less extreme
+            baseline_survival = 0.85  # Increased from 0.7 to give higher base survival rate
             
             # Scale fitness to be less extreme: baseline + advantage based on environment
             fitness = baseline_survival + (base_fitness - 0.5) * fitness_advantage
-            fitness = np.clip(fitness, 0.4, 0.9)  # Gentler range: 40%-90% survival
+            fitness = np.clip(fitness, 0.6, 0.95)  # Gentler range: 60%-95% survival
             
             # --- Selection (Survival of the Fittest) ---
             survivors_mask = np.random.rand(len(population)) < fitness
@@ -190,7 +190,7 @@ if run_button:
             # Calculate logistic growth factor
             # Growth slows as population approaches carrying capacity
             growth_factor = 1 - (current_pop_size / carrying_capacity)
-            growth_factor = max(0.1, growth_factor)  # Minimum growth factor to prevent negative growth
+            growth_factor = max(0.2, growth_factor)  # Increased minimum growth factor from 0.1 to 0.2
             
             # Effective reproduction rate decreases as population grows
             effective_reproduction_rate = reproduction_rate * growth_factor
