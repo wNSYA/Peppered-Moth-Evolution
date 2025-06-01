@@ -66,9 +66,30 @@ if reset_button:
     st.rerun()
 
 if run_button:
-    # --- GA Population Initialization ---
-    # 0 = white, 1 = dark (genetic representation)
-    population = np.random.choice([0, 1], size=initial_population)  
+    # --- GA Population Initialization (Modified for 50/50 split) ---
+    # Create exactly 50/50 split between white (0) and dark (1) moths
+    half_pop = initial_population // 2
+    remaining = initial_population % 2
+    
+    # Create equal numbers of each type
+    white_moths = np.zeros(half_pop, dtype=int)  # 0 = white
+    dark_moths = np.ones(half_pop, dtype=int)    # 1 = dark
+    
+    # Handle odd population sizes by adding one more moth randomly
+    if remaining > 0:
+        extra_moth = np.random.choice([0, 1], size=remaining)
+        population = np.concatenate([white_moths, dark_moths, extra_moth])
+    else:
+        population = np.concatenate([white_moths, dark_moths])
+    
+    # Shuffle the population to randomize positions
+    np.random.shuffle(population)
+    
+    # Display initial population composition
+    initial_white = np.count_nonzero(population == 0)
+    initial_dark = np.count_nonzero(population == 1)
+    st.info(f"Starting with exactly {initial_white} white moths and {initial_dark} dark moths (50/50 split)")
+    
     pollution_level = pollution_start
     
     # Data history
@@ -112,42 +133,68 @@ if run_button:
         progress_bar.progress(progress)
         progress_text.text(f"Running simulation... Generation {gen + 1}/{generations}")
         
-        # --- Fitness Calculation ---
-        # Fitness based on camouflage effectiveness
-        # 0 = white moths thrive in clean environment (low pollution)
-        # 1 = dark moths thrive in polluted environment (high pollution)
-        fitness = np.where(population == 0, 1.0 - pollution_level, pollution_level)
-        fitness = np.clip(fitness, 0.05, 1.0)  # Minimum survival chance
-        
-        # --- Selection (Survival of the Fittest) ---
-        survivors_mask = np.random.rand(len(population)) < fitness
-        survivors = population[survivors_mask]
+        # --- First Generation: Display initial 50/50 population without GA ---
+        if gen == 0:
+            # For first generation, just display the initial population without applying GA
+            white_survival = 1.0  # Show 100% survival for display purposes
+            dark_survival = 1.0   # Show 100% survival for display purposes
+        else:
+            # --- Fitness Calculation (for generations 2 and onwards) ---
+            # Gentler fitness based on camouflage effectiveness
+            # 0 = white moths thrive in clean environment (low pollution)
+            # 1 = dark moths thrive in polluted environment (high pollution)
+            
+            # Calculate base fitness (0 to 1)
+            base_fitness = np.where(population == 0, 1.0 - pollution_level, pollution_level)
+            
+            # Apply gentler selection pressure using sigmoid-like curve
+            # This makes the fitness difference less extreme
+            fitness_advantage = 0.3  # How much advantage the favored type gets
+            baseline_survival = 0.7   # Base survival rate for all moths
+            
+            # Scale fitness to be less extreme: baseline + advantage based on environment
+            fitness = baseline_survival + (base_fitness - 0.5) * fitness_advantage
+            fitness = np.clip(fitness, 0.4, 0.9)  # Gentler range: 40%-90% survival
+            
+            # --- Selection (Survival of the Fittest) ---
+            survivors_mask = np.random.rand(len(population)) < fitness
+            survivors = population[survivors_mask]
 
-        # --- Survival Rate Calculation ---
-        initial_white = np.count_nonzero(population == 0)
-        initial_dark = np.count_nonzero(population == 1)
+            # --- Survival Rate Calculation ---
+            initial_white_gen = np.count_nonzero(population == 0)
+            initial_dark_gen = np.count_nonzero(population == 1)
 
-        surviving_white = np.count_nonzero(survivors == 0)
-        surviving_dark = np.count_nonzero(survivors == 1)
+            surviving_white = np.count_nonzero(survivors == 0)
+            surviving_dark = np.count_nonzero(survivors == 1)
 
-        white_survival = surviving_white / initial_white if initial_white > 0 else 0
-        dark_survival = surviving_dark / initial_dark if initial_dark > 0 else 0
-                
-        # Prevent population extinction
-        if len(survivors) == 0:
-            population = np.random.choice([0, 1], size=initial_population)
-            continue
-        
-        # --- Reproduction (Create next generation) ---
-        # Each survivor can reproduce, population size remains constant
-        offspring = np.random.choice(survivors, size=initial_population)
-        
-        # --- Mutation (Genetic variation) ---
-        mutation_mask = np.random.rand(initial_population) < mutation_rate
-        offspring[mutation_mask] = 1 - offspring[mutation_mask]  # Flip gene (0->1 or 1->0)
-        
-        # --- Next Generation ---
-        population = offspring
+            white_survival = surviving_white / initial_white_gen if initial_white_gen > 0 else 0
+            dark_survival = surviving_dark / initial_dark_gen if initial_dark_gen > 0 else 0
+                    
+            # Prevent population extinction
+            if len(survivors) == 0:
+                # Recreate 50/50 population if extinction occurs
+                half_pop = initial_population // 2
+                remaining = initial_population % 2
+                white_moths = np.zeros(half_pop, dtype=int)
+                dark_moths = np.ones(half_pop, dtype=int)
+                if remaining > 0:
+                    extra_moth = np.random.choice([0, 1], size=remaining)
+                    population = np.concatenate([white_moths, dark_moths, extra_moth])
+                else:
+                    population = np.concatenate([white_moths, dark_moths])
+                np.random.shuffle(population)
+                continue
+            
+            # --- Reproduction (Create next generation) ---
+            # Each survivor can reproduce, population size remains constant
+            offspring = np.random.choice(survivors, size=initial_population)
+            
+            # --- Mutation (Genetic variation) ---
+            mutation_mask = np.random.rand(initial_population) < mutation_rate
+            offspring[mutation_mask] = 1 - offspring[mutation_mask]  # Flip gene (0->1 or 1->0)
+            
+            # --- Next Generation ---
+            population = offspring
         
         # Count phenotypes for visualization
         white_pop = np.count_nonzero(population == 0)
@@ -295,7 +342,7 @@ if run_button:
         st.metric("Final Dark Population", dark_history[-1])
     
     with final_col2:
-        initial_white_pct = 50.0
+        initial_white_pct = (initial_white / initial_population * 100)
         final_white_pct = (white_history[-1] / (white_history[-1] + dark_history[-1]) * 100) if (white_history[-1] + dark_history[-1]) > 0 else 0
         change_white = final_white_pct - initial_white_pct
         
