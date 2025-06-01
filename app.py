@@ -224,7 +224,6 @@ if run_button:
                 ax2.scatter(x_dark, y_dark, color="black", edgecolor='white', s=40, 
                            alpha=0.8, label=f"Dark Moths ({n_dark})")
             
-            ax2.legend(loc="upper right", framealpha=0.9)
         
         camouflage_placeholder.pyplot(fig2)
         plt.close(fig2)
