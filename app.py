@@ -26,7 +26,6 @@ with st.expander("About This Simulation"):
     - Population grows but is limited by carrying capacity (logistic growth)
     - Mutations occasionally change moth color
     - Population frequencies shift over generations
-    - **Note**: The first generation remains unchanged from initial population to show baseline
     """)
 
 # --- SIDEBAR CONTROLS ---
@@ -39,9 +38,9 @@ initial_population = st.sidebar.slider("Initial Population", 100, 1000, 300, ste
 generations = st.sidebar.slider("Number of Generations", 5, 100, 30,
                                help="How many generations to simulate")
 
-# Hard-coded parameters for realistic simulation
-carrying_capacity = 2000  # Maximum sustainable population
-reproduction_rate = 2.2   # Increased from 1.8 to allow better population growth
+# Parameters for realistic simulation
+carrying_capacity = 2000  
+reproduction_rate = 2.2   
 
 # Environmental settings
 st.sidebar.subheader("Environmental Factors")
@@ -72,14 +71,13 @@ if reset_button:
     st.rerun()
 
 if run_button:
-    # --- Population Initialization (Modified for 50/50 split) ---
-    # Create exactly 50/50 split between white (0) and dark (1) moths
+    # Population Initialization
     half_pop = initial_population // 2
     remaining = initial_population % 2
     
     # Create equal numbers of each type
-    white_moths = np.zeros(half_pop, dtype=int)  # 0 = white
-    dark_moths = np.ones(half_pop, dtype=int)    # 1 = dark
+    white_moths = np.zeros(half_pop, dtype=int)
+    dark_moths = np.ones(half_pop, dtype=int)
     
     # Handle odd population sizes by adding one more moth randomly
     if remaining > 0:
@@ -113,7 +111,6 @@ if run_button:
         pollution_metric = status_col5.empty()
 
     with main_container:
-        # Create three columns for better layout
         viz_col, graph_col, info_col = st.columns([2, 2, 1])
         
         with viz_col:
@@ -141,33 +138,26 @@ if run_button:
         
         current_pop_size = len(population)
         
-        # --- FIRST GENERATION: No changes, keep original population ---
         if gen == 0:
             # For the first generation, keep the population exactly as initialized
-            # No selection, no reproduction, no mutation - just display the baseline
             
             # Set survival rates to 100% for display
             white_survival = 1.0
             dark_survival = 1.0
             
-            # Population remains unchanged for generation 1
-            # (population variable stays the same)
-            
         else:
-            # --- SUBSEQUENT GENERATIONS: Apply normal selection ---    
             # --- Fitness Calculation ---
             # Calculate base fitness (0 to 1)
             base_fitness = np.where(population == 0, 1.0 - pollution_level, pollution_level)
             
             # Apply gentler selection pressure using sigmoid-like curve
-            fitness_advantage = 0.2  # Reduced from 0.3 to make selection less extreme
-            baseline_survival = 0.85  # Increased from 0.7 to give higher base survival rate
+            fitness_advantage = 0.2 
+            baseline_survival = 0.85
             
-            # Scale fitness to be less extreme: baseline + advantage based on environment
             fitness = baseline_survival + (base_fitness - 0.5) * fitness_advantage
-            fitness = np.clip(fitness, 0.6, 0.95)  # Gentler range: 60%-95% survival
+            fitness = np.clip(fitness, 0.6, 0.95)  
             
-            # --- Selection (Survival of the Fittest) ---
+            # --- Selection ---
             survivors_mask = np.random.rand(len(population)) < fitness
             survivors = population[survivors_mask]
             
@@ -183,14 +173,13 @@ if run_button:
             
             # Prevent population extinction
             if len(survivors) == 0:
-                # Recreate small population if extinction occurs
                 survivors = np.random.choice([0, 1], size=max(10, initial_population // 10))
             
-            # --- Reproduction with Logistic Growth ---
+            # --- Reproduction ---
             # Calculate logistic growth factor
             # Growth slows as population approaches carrying capacity
             growth_factor = 1 - (current_pop_size / carrying_capacity)
-            growth_factor = max(0.2, growth_factor)  # Increased minimum growth factor from 0.1 to 0.2
+            growth_factor = max(0.2, growth_factor)
             
             # Effective reproduction rate decreases as population grows
             effective_reproduction_rate = reproduction_rate * growth_factor
@@ -200,12 +189,12 @@ if run_button:
             expected_offspring = len(survivors) * effective_reproduction_rate
             
             # Add some randomness to reproduction
-            offspring_variance = 0.2  # 20% variance
+            offspring_variance = 0.2
             actual_offspring = int(expected_offspring * (1 + np.random.normal(0, offspring_variance)))
             
             # Ensure population doesn't exceed carrying capacity
             next_pop_size = min(actual_offspring, carrying_capacity)
-            next_pop_size = max(next_pop_size, len(survivors))  # At least maintain survivors
+            next_pop_size = max(next_pop_size, len(survivors))
             
             # --- Create Next Generation ---
             if next_pop_size <= len(survivors):
@@ -224,7 +213,7 @@ if run_button:
             # --- Next Generation ---
             population = offspring
         
-        # Count phenotypes for visualization (this happens for all generations)
+        # Count phenotypes for visualization
         white_pop = np.count_nonzero(population == 0)
         dark_pop = np.count_nonzero(population == 1)
         total_pop = len(population)
@@ -256,34 +245,21 @@ if run_button:
         pollution_metric.metric("Pollution Level", f"{pollution_level:.2f}", f"{pollution_rate:+.3f}")
 
         # --- Visualizing Environment (Camouflage) ---
-        # Create realistic tree bark coloring based on pollution
-        clean_bark_color = (0.85, 0.75, 0.65)  # Light brownish bark
-        polluted_bark_color = (0.15, 0.12, 0.10)  # Dark sooty bark
-        
-        # Interpolate between clean and polluted colors
+        # Create tree bark coloring based on pollution
+        clean_bark_color = (0.98, 0.97, 0.96)  
+        polluted_bark_color = (0.40, 0.38, 0.36)
+
         bark_r = clean_bark_color[0] * (1 - pollution_level) + polluted_bark_color[0] * pollution_level
         bark_g = clean_bark_color[1] * (1 - pollution_level) + polluted_bark_color[1] * pollution_level
         bark_b = clean_bark_color[2] * (1 - pollution_level) + polluted_bark_color[2] * pollution_level
-        
-        fig2, ax2 = plt.subplots(figsize=(6, 5))
-        ax2.set_facecolor((bark_r, bark_g, bark_b))
-        
-        # Add some texture to simulate bark pattern
-        np.random.seed(42)  # For consistent texture
-        n_texture = 30
-        texture_x = np.random.rand(n_texture)
-        texture_y = np.random.rand(n_texture)
-        texture_color = (bark_r * 0.7, bark_g * 0.7, bark_b * 0.7)
-        ax2.scatter(texture_x, texture_y, c=[texture_color], s=20, alpha=0.3, marker='s')
-        
-        pollution_desc = "Clean" if pollution_level < 0.3 else "Moderately Polluted" if pollution_level < 0.7 else "Heavily Polluted"
-        generation_status = " (Baseline - No Selection)" if gen == 0 else ""
-        ax2.set_title(f"Tree Bark Environment - {pollution_desc}, Pollution: {pollution_level:.2f}{generation_status}", 
-                     fontsize=12, pad=20)
-        ax2.axis('off')
 
-        # Display representative sample of moths (limit for visualization)
-        total_display = min(total_pop, 200)  # Increased display limit
+        # Create figure with solid background
+        fig2, ax2 = plt.subplots(figsize=(6, 5))
+        fig2.patch.set_facecolor((bark_r, bark_g, bark_b))
+        ax2.set_facecolor((bark_r, bark_g, bark_b))
+
+        # Display moths with optimized visibility
+        total_display = min(total_pop, 200)
         if total_display > 0:
             white_ratio = white_pop / total_pop
             n_white = int(total_display * white_ratio)
@@ -291,14 +267,27 @@ if run_button:
 
             if n_white > 0:
                 x_white, y_white = np.random.rand(n_white), np.random.rand(n_white)
-                ax2.scatter(x_white, y_white, color="white", edgecolor='black', s=40, 
-                           alpha=0.8, label=f"White Moths ({white_pop})")
+                ax2.scatter(x_white, y_white, color="white", 
+                        edgecolor='#d0d0d0',
+                        s=45, 
+                        alpha=0.92, 
+                        label=f"White Moths ({white_pop})", 
+                        zorder=2)
             
             if n_dark > 0:
                 x_dark, y_dark = np.random.rand(n_dark), np.random.rand(n_dark)
-                ax2.scatter(x_dark, y_dark, color="black", edgecolor='white', s=40, 
-                           alpha=0.8, label=f"Dark Moths ({dark_pop})")
-            
+                ax2.scatter(x_dark, y_dark, color="#202020",  # Soft black
+                        edgecolor='#606060', 
+                        s=45, 
+                        alpha=0.92, 
+                        label=f"Dark Moths ({dark_pop})", 
+                        zorder=2)
+
+        # Title and axis
+        pollution_desc = "Clean" if pollution_level < 0.3 else "Moderately Polluted" if pollution_level < 0.7 else "Heavily Polluted"
+        generation_status = " (Baseline - No Selection)" if gen == 0 else ""
+        ax2.axis('off')
+
         camouflage_placeholder.pyplot(fig2)
         plt.close(fig2)
 
@@ -314,11 +303,6 @@ if run_button:
         ax1.set_title("Population Over Time")
         ax1.legend()
         ax1.grid(True, alpha=0.3)
-        
-        # Add vertical line to show when selection starts
-        if len(generations_x) > 1:
-            ax1.axvline(x=1.5, color='red', linestyle='--', alpha=0.5, label='Selection Starts')
-            ax1.legend()
         
         # Pollution level over time
         ax3.plot(generations_x, pollution_history, label="Pollution Level", color="brown", linewidth=2)
@@ -424,11 +408,9 @@ else:
     with col1:
         st.markdown("""
         **Environment Visualization**
-        - Background color represents pollution level
         - Moths are displayed as dots on tree bark
         - Better camouflaged moths survive more often
         - Population size affects moth density
-        - Generation 1 shows baseline (no selection)
         """)
     
     with col2:
@@ -437,5 +419,4 @@ else:
         - Real-time population graphs showing moth variants
         - Environmental change over time
         - Statistical summaries and metrics
-        - Clear indication when selection pressure begins
         """)
