@@ -33,18 +33,18 @@ st.sidebar.header("Simulation Parameters")
 
 # Population settings
 st.sidebar.subheader("Population Settings")
-initial_population = st.sidebar.slider("Initial Population", 100, 1000, 300, step=50, 
+initial_population = st.sidebar.slider("Initial Population", 100, 1000, 500, step=50, 
                                      help="Total number of moths at the start")
 generations = st.sidebar.slider("Number of Generations", 5, 100, 30,
                                help="How many generations to simulate")
 
 # Parameters for realistic simulation
 carrying_capacity = 2000  
-reproduction_rate = 2.2   
+reproduction_rate = 2   
 
 # Environmental settings
 st.sidebar.subheader("Environmental Factors")
-pollution_start = st.sidebar.slider("Initial Pollution Level", 0.0, 1.0, 0.3, step=0.05,
+pollution_start = st.sidebar.slider("Initial Pollution Level", 0.0, 1.0, 0.1, step=0.05,
                                    help="0 = Clean environment, 1 = Heavily polluted")
 pollution_rate = st.sidebar.slider("Pollution Change Rate per Generation", -0.05, 0.05, 0.01, step=0.01,
                                   help="How pollution changes each generation")
